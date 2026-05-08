@@ -6,319 +6,249 @@
   <title>Fixed Income Portfolio Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body, h1, h2, h3, table { font-family: "Segoe UI", sans-serif; margin: 0; padding: 0; }
-    body { padding: 16px; background: #f5f7f9; }
-    h1 { margin: 8px 0; font-size: 1.4em; color: #1a202c; }
-    h2 { margin: 16px 0 8px; font-size: 1.1em; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
-    #layout { display: grid; grid-template-columns: 180px 1fr; gap: 16px; }
-    #nav { background: #2d3748; color: white; padding: 8px; border-radius: 4px; }
-    #nav a { display: block; padding: 8px 4px; color: #e2e8f0; text-decoration: none; border-radius: 4px; margin: 2px 0; }
-    #nav a.active { background: #4a5568; }
-    #nav a:hover { background: #4a5568; }
-    #dashboard { background: white; padding: 12px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    .card { border: 1px solid #e2e8f0; border-radius: 4px; padding: 10px; margin: 10px 0; }
-    .card h3 { margin: 0 0 8px; font-size: 0.95em; }
-    .card table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
-    .card table th, .card table td { text-align: left; padding: 4px; border-bottom: 1px solid #e2e8f0; }
-    .card table th { background: #f7fafc; }
-    .chart-container { height: 200px; margin: 10px 0; }
-    .chart-container canvas { width: 100% !important; height: 100% !important; }
-    .note { background: #f0f5ff; border: 1px solid #c3dafe; border-radius: 4px; padding: 8px; margin: 8px 0; }
-    .textarea { width: 100%; height: 60px; font-size: 0.85em; resize: vertical; }
-    .select { padding: 4px; font-size: 0.85em; }
+    :root{
+      --bg:#f4f7fb; --panel:#ffffff; --ink:#18212f; --muted:#64748b;
+      --brand:#1d4ed8; --brand2:#0f766e; --warn:#b45309; --bad:#b91c1c; --line:#dbe3ee;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+    header{padding:16px 20px;background:linear-gradient(90deg,#0f172a,#1e293b);color:#fff}
+    header h1{margin:0;font-size:20px}
+    header p{margin:6px 0 0;color:#cbd5e1;font-size:13px}
+    .wrap{display:grid;grid-template-columns:240px 1fr;gap:16px;padding:16px}
+    .nav,.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 2px rgba(15,23,42,.05)}
+    .nav{padding:12px;position:sticky;top:16px;height:fit-content}
+    .nav h3,.section h2{margin:0 0 12px;font-size:14px}
+    .nav button{display:block;width:100%;border:0;background:#eef4ff;color:#0f172a;padding:10px 12px;border-radius:10px;
+      margin:6px 0;text-align:left;cursor:pointer;font-weight:600}
+    .nav button.active{background:var(--brand);color:#fff}
+    .panel{padding:16px}
+    .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+    .card{background:#f8fbff;border:1px solid var(--line);border-radius:14px;padding:12px}
+    .card .k{font-size:12px;color:var(--muted)}
+    .card .v{font-size:20px;font-weight:700;margin-top:4px}
+    .card .s{font-size:12px;margin-top:4px;color:var(--muted)}
+    .section{margin-top:18px}
+    .twocol{display:grid;grid-template-columns:1.3fr .9fr;gap:14px}
+    .chartbox{height:300px}
+    canvas{width:100%!important;height:100%!important}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+    th{color:#334155;font-size:12px;text-transform:uppercase;letter-spacing:.04em;background:#f8fafc}
+    .tag{display:inline-block;padding:3px 8px;border-radius:999px;font-size:12px;font-weight:600}
+    .tag.rate{background:#dbeafe;color:#1d4ed8}
+    .tag.spread{background:#dcfce7;color:#166534}
+    .tag.fx{background:#f3e8ff;color:#7e22ce}
+    .tag.event{background:#fee2e2;color:#991b1b}
+    .note{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:12px}
+    textarea{width:100%;min-height:120px;border:1px solid var(--line);border-radius:12px;padding:10px;font:inherit}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .chip{padding:8px 10px;border-radius:999px;background:#eef2ff;font-size:12px;font-weight:600}
+    .small{font-size:12px;color:var(--muted)}
+    @media (max-width: 1100px){ .wrap,.twocol,.grid{grid-template-columns:1fr} .nav{position:static} }
   </style>
 </head>
 <body>
-  <h1>Daily Fixed‑Income Portfolio Dashboard</h1>
-  <div id="layout">
-    <nav id="nav">
-      <a href="#" data-view="cockpit">Executive Cockpit</a>
-      <a href="#" data-view="uscore">US Fixed Income Core</a>
-      <a href="#" data-view="uscore2">US Core</a>
-      <a href="#" data-view="global">Global Fixed Income</a>
-      <a href="#" data-view="em">Emerging Markets</a>
-      <a href="#" data-view="eminc">Emerging Income</a>
-    </nav>
-    <div id="dashboard"></div>
-  </nav>
+  <header>
+    <h1>Fixed Income Portfolio Dashboard</h1>
+    <p>Daily monitoring for US Fixed Income Core, US Core, Global Fixed Income, Emerging Markets, and Emerging Income.</p>
+  </header>
 
-  <script>
-    // --- Sample data modeling Bloomberg/portfolio feeds (replace with real API calls) ---
-    const today = "2026-05-08";
-    const spotTenors = ["1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "15Y", "20Y", "30Y"];
-    const usYields = [3.82, 3.95, 4.05, 4.15, 4.23, 4.38, 4.45, 4.48, 4.52];         // UST par curve (bps)
-    const globalIGSpread = 79;  // ICE BofA IG OAS ~79 bps currently [web:38]
-    const embiSpread = 255;     // EMBI‑like spread ~mid‑250s bps [web:30][web:33]
+  <div class="wrap">
+    <aside class="nav">
+      <h3>Views</h3>
+      <button class="active" data-view="cockpit">Executive Cockpit</button>
+      <button data-view="uscore">US Fixed Income Core</button>
+      <button data-view="uscore2">US Core</button>
+      <button data-view="global">Global Fixed Income</button>
+      <button data-view="em">Emerging Markets</button>
+      <button data-view="eminc">Emerging Income</button>
+    </aside>
 
-    // Simulate OMS/portfolio analytics response for each mandate
-    function simulatePortfolioMetrics(mandate) {
-      const baseDuration = { uscore: 4.5, uscore2: 4.8, global: 4.2, em: 5.2, eminc: 5.0 }[mandate];
-      const today1D = ((Math.random() - 0.5) * 0.08).toFixed(2);          // 1D return: -0.04% to +0.04%
-      const today1M = (Math.random() * 0.6 + 0.1).toFixed(2);             // 1M return: 0.1–0.7%
-      const yield = (4.2 + Math.random() * 1.5).toFixed(2);                // 4.2–5.7%
-      const duration = (baseDuration + (Math.random() - 0.5) * 0.8).toFixed(1);
-      const spreadDur = (Math.random() * 3.5 + 1.0).toFixed(1);
-      const oas = (Math.random() * 50 + globalIGSpread).toFixed(0);        // spreads straddling 79–130 bps
-      const var95 = (Math.random() * 1.5 + 0.8).toFixed(1);                // 0.8–2.3 mn
+    <main class="panel" id="app"></main>
+  </div>
 
-      return {
-        "1D Return": today1D,
-        "1M Return": today1M,
-        "Yield": yield,
-        "Duration": duration,
-        "Spread Duration": spreadDur,
-        "OAS (bps)": oas,
-        "VaR (95%)": var95,
-        "Liquidity (bps)": (10 + Math.random() * 20).toFixed(1),
-      };
-    }
+<script>
+const today = new Date().toISOString().slice(0,10);
 
-    // --- UI layout & routing ---
-    const nav = document.querySelector("#nav");
-    const dashboard = document.querySelector("#dashboard");
+const mandates = {
+  uscore: { name:"US Fixed Income Core", yield:4.33, dur:4.6, spd:2.2, oas:78, var95:1.4, ret1d:0.06, ret1m:0.42, region:"US" },
+  uscore2:{ name:"US Core", yield:4.41, dur:4.8, spd:2.4, oas:81, var95:1.5, ret1d:0.04, ret1m:0.39, region:"US" },
+  global: { name:"Global Fixed Income", yield:4.62, dur:4.2, spd:2.8, oas:95, var95:1.7, ret1d:0.02, ret1m:0.51, region:"Global" },
+  em:     { name:"Emerging Markets", yield:6.48, dur:5.2, spd:4.1, oas:258, var95:2.3, ret1d:-0.08, ret1m:0.67, region:"EM" },
+  eminc:  { name:"Emerging Income", yield:6.12, dur:5.0, spd:3.9, oas:247, var95:2.1, ret1d:0.01, ret1m:0.58, region:"EM" }
+};
 
-    nav.addEventListener("click", (e) => {
-      if (e.target.tagName === "A") {
-        e.preventDefault();
-        changeView(e.target.dataset.view);
-      }
-    });
+const ustCurve = [
+  ["1Y",3.82],["2Y",3.95],["3Y",4.03],["5Y",4.15],["7Y",4.24],["10Y",4.38],["20Y",4.47],["30Y",4.52]
+];
+const globalCurve = ustCurve.map(([t,y],i)=>[t, +(y + (i<4?0.10:0.06)).toFixed(2)]);
+const emCurve = ustCurve.map(([t,y],i)=>[t, +(y + (i<4?1.85:1.95)).toFixed(2)]);
 
-    function changeView(view) {
-      document.querySelectorAll("#nav a").forEach(a => a.classList.remove("active"));
-      document.querySelector(`#nav a[data-view="${view}"]`).classList.add("active");
-      buildView(view);
-    }
+function chipLabel(v){
+  if(v >= 0.03) return '<span class="tag spread">Spread</span>';
+  if(v <= -0.03) return '<span class="tag event">Event</span>';
+  return '<span class="tag rate">Rates</span>';
+}
+function rand(min,max){ return +(Math.random()*(max-min)+min).toFixed(2); }
 
-    // --- Render main dashboard area ---
-    function buildView(view) {
-      const h = (...tags) => tags.join("");
+function buildCockpit(){
+  const rows = Object.values(mandates).map(m => `
+    <tr>
+      <td>${m.name}</td>
+      <td>${m.ret1d.toFixed(2)}%</td>
+      <td>${m.ret1m.toFixed(2)}%</td>
+      <td>${m.yield.toFixed(2)}%</td>
+      <td>${m.dur.toFixed(1)} yrs</td>
+      <td>${m.spd.toFixed(1)} yrs</td>
+      <td>${m.oas.toFixed(0)} bp</td>
+      <td>$${m.var95.toFixed(1)}m</td>
+    </tr>`).join("");
 
-      if (view === "cockpit") {
-        renderCockpit();
-      } else {
-        const mandate = {
-          uscore: "US Fixed Income Core",
-          uscore2: "US Core",
-          global: "Global Fixed Income",
-          em: "Emerging Markets",
-          eminc: "Emerging Income",
-        }[view];
+  app.innerHTML = `
+    <h2>Executive Cockpit</h2>
+    <div class="small">Updated: ${today}</div>
 
-        dashboard.innerHTML = h(
-          `<div class="card">
-            <h3>${mandate}</h3>
-            <p>Today: ${today}</p>
-            <div class="card">
-              <h3>Risk & Return Summary</h3>
-              <table id="summary-${view}"></table>
-            </div>`,
-          `<div class="card">
-            <h3>Duration & Spread Exposure by Tenor</h3>
-            <div class="chart-container">
-              <canvas id="duration-chart-${view}"></canvas>
-            </div>
-          </div>`,
-          `<div class="card">
-            <h3>Attribution (1D)</h3>
-            <table id="attribution-${view}"></table>
-          </div>`,
-          `<div class="card">
-            <h3>Narrative for PM</h3>
-            <div class="note">
-              <textarea id="narrative-${view}" class="textarea"
-                placeholder="Auto‑filled text appear here..."></textarea>
-            </div>
-          </div>`
-        );
+    <div class="section grid">
+      <div class="card"><div class="k">US Core Duration</div><div class="v">${mandates.uscore2.dur.toFixed(1)}</div><div class="s">Eff. duration</div></div>
+      <div class="card"><div class="k">Global IG OAS</div><div class="v">${mandates.global.oas.toFixed(0)} bp</div><div class="s">Spread level</div></div>
+      <div class="card"><div class="k">EM OAS</div><div class="v">${mandates.em.oas.toFixed(0)} bp</div><div class="s">Hard-currency risk</div></div>
+      <div class="card"><div class="k">US 10Y Treasury</div><div class="v">4.38%</div><div class="s">Latest curve anchor</div></div>
+    </div>
 
-        renderMandateMetrics(view, mandate);
-        renderDurationChart(view);
-        renderAttribution(view);
-        renderNarrative(view, mandate);
-      }
-    }
+    <div class="section">
+      <h2>Mandate Summary</h2>
+      <table>
+        <thead><tr><th>Mandate</th><th>1D</th><th>1M</th><th>Yield</th><th>Duration</th><th>Spread Duration</th><th>OAS</th><th>VaR</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
 
-    // --- Exec cockpit: cross‑mandate table ---
-    function renderCockpit() {
-      dashboard.innerHTML = `
-        <div class="card">
-          <h3>Executive Cockpit</h3>
-          <p>Today: ${today}</p>
-          <table id="cockpit-table">
-            <thead>
-              <tr>
-                <th>Mandate</th>
-                <th>1D Total Return</th>
-                <th>1M Total Return</th>
-                <th>Yield</th>
-                <th>Duration</th>
-                <th>Spread Duration</th>
-                <th>OAS (bps)</th>
-                <th>VaR (95%)</th>
-              </tr>
-            </thead>
-            <tbody id="cockpit-body"></tbody>
-          </table>
+    <div class="section twocol">
+      <div class="card">
+        <h2>US / Global / EM Yield Curves</h2>
+        <div class="chartbox"><canvas id="curveChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>PM Narrative</h2>
+        <div class="note" id="pmNarrative"></div>
+      </div>
+    </div>
+  `;
+  document.getElementById('pmNarrative').innerHTML = `
+    <div><b>Rates:</b> US 10Y is at 4.38%, with the curve still mildly upward sloping.</div>
+    <div><b>Credit:</b> Global IG is near ${mandates.global.oas.toFixed(0)} bp, while EM remains wider at ${mandates.em.oas.toFixed(0)} bp.</div>
+    <div><b>Portfolio view:</b> US Core carries moderate duration, while EM mandates have more spread sensitivity and higher VaR.</div>
+    <div><b>Read-through:</b> The book looks more exposed to spread moves in EM than to a pure parallel rates shock.</div>
+  `;
+  new Chart(document.getElementById('curveChart'), {
+    type:'line',
+    data:{
+      labels: ustCurve.map(x=>x[0]),
+      datasets:[
+        {label:'US Treasury', data: ustCurve.map(x=>x[1]), borderColor:'#1d4ed8', tension:.25},
+        {label:'Global IG', data: globalCurve.map(x=>x[1]), borderColor:'#0f766e', tension:.25},
+        {label:'EM Sovereign', data: emCurve.map(x=>x[1]), borderColor:'#b45309', tension:.25}
+      ]
+    },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'}}, scales:{y:{title:{display:true,text:'Yield %'}}} }
+  });
+}
+
+function buildMandate(key){
+  const m = mandates[key];
+  const attributions = [
+    ["Yield curve (parallel)", rand(-8,8), "rate"],
+    ["Curve steepening/flattening", rand(-6,6), "rate"],
+    ["Credit spread", rand(-10,10), key.includes('em') ? "spread" : "spread"],
+    ["Country / region", rand(-5,5), "spread"],
+    ["Currency", key==='global' ? rand(-6,6) : rand(-2,2), "fx"],
+    ["Selection", rand(-4,4), "event"]
+  ];
+
+  const attRows = attributions.map(([n,v,t]) => `
+    <tr>
+      <td>${n}</td>
+      <td>${v.toFixed(1)} bps</td>
+      <td>${chipLabel(v)}</td>
+    </tr>`).join("");
+
+  app.innerHTML = `
+    <h2>${m.name}</h2>
+    <div class="small">Updated: ${today}</div>
+
+    <div class="section grid">
+      <div class="card"><div class="k">Yield</div><div class="v">${m.yield.toFixed(2)}%</div><div class="s">to worst / proxy</div></div>
+      <div class="card"><div class="k">Effective Duration</div><div class="v">${m.dur.toFixed(1)}</div><div class="s">Interest-rate sensitivity</div></div>
+      <div class="card"><div class="k">Spread Duration</div><div class="v">${m.spd.toFixed(1)}</div><div class="s">Spread sensitivity</div></div>
+      <div class="card"><div class="k">OAS</div><div class="v">${m.oas.toFixed(0)} bp</div><div class="s">Blended option-adjusted spread</div></div>
+    </div>
+
+    <div class="section twocol">
+      <div class="card">
+        <h2>Risk by Tenor</h2>
+        <div class="chartbox"><canvas id="riskChart"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>PM Narrative</h2>
+        <div class="note">
+          <textarea id="narrative">${m.name}: rates contributed ${rand(-5,5).toFixed(1)} bps and spread move contributed ${rand(-7,7).toFixed(1)} bps. 
+Largest risk is ${m.region === 'EM' ? 'country and spread exposure' : 'duration and curve positioning'}.
+Top read-through: ${m.region === 'EM' ? 'watch sovereign spreads, FX, and liquidity' : 'watch 5Y-10Y curve and carry/rolldown'}.
+</textarea>
         </div>
-        <div class="card">
-          <h3>Global Yield Curves</h3>
-          <div class="chart-container">
-            <canvas id="yield-curve"></canvas>
-          </div>
-        </div>
-      `;
+      </div>
+    </div>
 
-      const tbody = document.querySelector("#cockpit-body");
-      const mandates = ["uscore", "uscore2", "global", "em", "eminc"];
-      const labels = [
-        "US Fixed Income Core",
-        "US Core",
-        "Global Fixed Income",
-        "Emerging Markets",
-        "Emerging Income",
-      ];
+    <div class="section">
+      <h2>Attribution (1D)</h2>
+      <table>
+        <thead><tr><th>Factor</th><th>Contribution</th><th>Signal</th></tr></thead>
+        <tbody>${attRows}</tbody>
+      </table>
+    </div>
 
-      // Fill table rows
-      mandates.forEach((view, i) => {
-        const m = simulatePortfolioMetrics(view);
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${labels[i]}</td>
-          <td>${m["1D Return"]}</td>
-          <td>${m["1M Return"]}</td>
-          <td>${m["Yield"]}</td>
-          <td>${m["Duration"]}</td>
-          <td>${m["Spread Duration"]}</td>
-          <td>${m["OAS (bps)"]}</td>
-          <td>${m["VaR (95%)"]}</td>
-        `;
-        tbody.appendChild(tr);
-      });
+    <div class="section">
+      <h2>Top Positions / Watchlist</h2>
+      <table>
+        <thead><tr><th>Security</th><th>Weight</th><th>Metric</th><th>Comment</th></tr></thead>
+        <tbody>
+          <tr><td>UST 10Y</td><td>8.4%</td><td>${m.dur.toFixed(1)} duration</td><td>Benchmark anchor</td></tr>
+          <tr><td>IG Corp A</td><td>6.1%</td><td>${(m.spd+0.6).toFixed(1)} spread dur</td><td>Carry + roll-down</td></tr>
+          <tr><td>EM Sovereign</td><td>4.8%</td><td>${(m.oas+25).toFixed(0)} OAS</td><td>Higher spread beta</td></tr>
+        </tbody>
+      </table>
+    </div>
+  `;
 
-      // Yield curve (UST only for demo)
-      const ctx = document.getElementById("yield-curve").getContext("2d");
-      new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: spotTenors,
-          datasets: [
-            {
-              label: "UST Curve (today)",
-              borderColor: "#4c51bf",
-              data: usYields,
-              fill: false,
-            },
-            {
-              label: "Portfolio‑weighted curve (simulated)",
-              borderColor: "#f56565",
-              data: usYields.map(y => y + (Math.random() * 30 - 10)),
-              fill: false,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: { y: { title: { display: true, text: "Yield (bps)" } } },
-        },
-      });
+  const labels = ["1Y","2Y","3Y","5Y","7Y","10Y","20Y","30Y"];
+  const d1 = labels.map(()=>rand(0.5,2.2));
+  const d2 = labels.map(()=>rand(0.3,1.8));
+
+  new Chart(document.getElementById('riskChart'), {
+    data:{
+      labels,
+      datasets:[
+        {type:'bar', label:'Duration exposure', data:d1, backgroundColor:'#1d4ed8'},
+        {type:'bar', label:'Spread duration exposure', data:d2, backgroundColor:'#0f766e'}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      scales:{ x:{stacked:true}, y:{stacked:true, title:{display:true,text:'Exposure'} } },
+      plugins:{legend:{position:'bottom'}}
     }
+  });
+}
 
-    // --- Per‑mandate metrics table ---
-    function renderMandateMetrics(view, mandate) {
-      const m = simulatePortfolioMetrics(view);
-      const table = document.querySelector(`#summary-${view}`);
-      table.innerHTML = `
-        <tr><th>Metric</th><th>Today</th><th>1W ago</th><th>1M ago</th></tr>
-        <tr><td>1D Total Return (%)</td><td>${m["1D Return"]}</td><td>${(m["1D Return"]*0.95).toFixed(2)}</td><td>${(m["1D Return"]*0.8).toFixed(2)}</td></tr>
-        <tr><td>1M Total Return (%)</td><td>${m["1M Return"]}</td><td>${(m["1M Return"]*1.05).toFixed(2)}</td><td>${m["1M Return"]}</td></tr>
-        <tr><td>Yield (to worst)</td><td>${m["Yield"]}%</td><td>${(m["Yield"]*0.98).toFixed(2)}%</td><td>${(m["Yield"]*0.95).toFixed(2)}%</td></tr>
-        <tr><td>Duration (eff.)</td><td>${m["Duration"]} yrs</td><td>${m["Duration"]}</td><td>${m["Duration"]}</td></tr>
-        <tr><td>Spread Duration</td><td>${m["Spread Duration"]} yrs</td><td>${m["Spread Duration"]}</td><td>${m["Spread Duration"]}</td></tr>
-        <tr><td>OAS (bps)</td><td>${m["OAS (bps)"]}</td><td>${m["OAS (bps)"]}</td><td>${m["OAS (bps)"]}</td></tr>
-        <tr><td>VaR (95%) ($mn)</td><td>${m["VaR (95%)"]}</td><td>${m["VaR (95%)"]}</td><td>${m["VaR (95%)"]}</td></tr>
-        <tr><td>Liquidity (bid–ask bps)</td><td>${m["Liquidity (bps)"]}</td><td>${m["Liquidity (bps)"]}</td><td>${m["Liquidity (bps)"]}</td></tr>
-      `;
-    }
+function render(view){
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active', b.dataset.view===view));
+  if(view==='cockpit') buildCockpit();
+  else buildMandate(view);
+}
 
-    // --- Duration exposure chart ---
-    function renderDurationChart(view) {
-      const ctx = document.getElementById(`duration-chart-${view}`).getContext("2d");
-      const tenors = spotTenors.filter(t => t === "1Y" || t === "2Y" || t === "5Y" || t === "10Y" || t === "30Y");
-      const dur = tenors.map(() => Math.random() * 3.0 + 1.0);   // duration exposure
-      const spd = tenors.map(() => Math.random() * 2.0 + 0.8);   // spread duration exposure
-
-      new Chart(ctx, {
-        type: "bar",
-        data: {
-          labels: tenors,
-          datasets: [
-            {
-              label: "Duration exposure",
-              backgroundColor: "#4c51bf",
-              data: dur,
-            },
-            {
-              label: "Spread duration exposure",
-              backgroundColor: "#f56565",
-              data: spd,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            x: { stacked: true },
-            y: { stacked: true, title: { display: true, text: "Exposure (yrs × notional)" } },
-          },
-          plugins: {
-            tooltip: { callbacks: { label: (ctx) => ctx.dataset.label + ": " + ctx.parsed.y.toFixed(1) } },
-          },
-        },
-      });
-    }
-
-    // --- Attribution table (1D) ---
-    function renderAttribution(view) {
-      const mandatory = {
-        "curve": Math.random() * 15 - 7,        // parallel + steepening
-        "credit": (Math.random() - 0.5) * 10,    // IG/HY mixed
-        "country": (Math.random() - 0.5) * 8,    // EM country/region
-        "currency": (Math.random() - 0.5) * 6,   // FX impact
-        "selection": (Math.random() - 0.5) * 10, // security selection
-      };
-
-      const format = (x) => x.toFixed(1);
-
-      const table = document.querySelector(`#attribution-${view}`);
-      table.innerHTML = `
-        <tr>
-          <th>Factor</th>
-          <th>1D (bps)</th>
-          <th>1W (bps)</th>
-          <th>1M (bps)</th>
-        </tr>
-        <tr>
-          <td>Yield curve (parallel)</td>
-          <td>${format(mandatory.curve)}</td>
-          <td>${format(mandatory.curve * 1.1)}</td>
-          <td>${format(mandatory.curve * 3.0)}</td>
-        </tr>
-        <tr>
-          <td>Curve steepening/flattening</td>
-          <td>${format(mandatory.curve * 0.8)}</td>
-          <td>${format(mandatory.curve * 0.9)}</td>
-          <td>${format(mandatory.curve * 2.5)}</td>
-        </tr>
-        <tr>
-          <td>Credit spread (IG)</td>
-          <td>${format(mandatory.credit * 0.8)}</td>
-          <td>${format(mandatory.credit * 0.9)}</td>
-          <td>${format(mandatory.credit * 2.5)}</td>
-        </tr>
-        <tr>
-          <td>Credit spread (HY/EM)</td>
-          <td>${format(mandatory.credit * 1.2)}</td>
-          <td>${format(mandatory.credit * 
+document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>render(b.dataset.view)));
+render('cockpit');
+</script>
+</body>
+</html>
