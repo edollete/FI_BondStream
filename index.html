@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fixed Income Portfolio Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body, h1, h2, h3, table { font-family: "Segoe UI", sans-serif; margin: 0; padding: 0; }
+    body { padding: 16px; background: #f5f7f9; }
+    h1 { margin: 8px 0; font-size: 1.4em; color: #1a202c; }
+    h2 { margin: 16px 0 8px; font-size: 1.1em; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+    #layout { display: grid; grid-template-columns: 180px 1fr; gap: 16px; }
+    #nav { background: #2d3748; color: white; padding: 8px; border-radius: 4px; }
+    #nav a { display: block; padding: 8px 4px; color: #e2e8f0; text-decoration: none; border-radius: 4px; margin: 2px 0; }
+    #nav a.active { background: #4a5568; }
+    #nav a:hover { background: #4a5568; }
+    #dashboard { background: white; padding: 12px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .card { border: 1px solid #e2e8f0; border-radius: 4px; padding: 10px; margin: 10px 0; }
+    .card h3 { margin: 0 0 8px; font-size: 0.95em; }
+    .card table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+    .card table th, .card table td { text-align: left; padding: 4px; border-bottom: 1px solid #e2e8f0; }
+    .card table th { background: #f7fafc; }
+    .chart-container { height: 200px; margin: 10px 0; }
+    .chart-container canvas { width: 100% !important; height: 100% !important; }
+    .note { background: #f0f5ff; border: 1px solid #c3dafe; border-radius: 4px; padding: 8px; margin: 8px 0; }
+    .textarea { width: 100%; height: 60px; font-size: 0.85em; resize: vertical; }
+    .select { padding: 4px; font-size: 0.85em; }
+  </style>
+</head>
+<body>
+  <h1>Daily Fixed‑Income Portfolio Dashboard</h1>
+  <div id="layout">
+    <nav id="nav">
+      <a href="#" data-view="cockpit">Executive Cockpit</a>
+      <a href="#" data-view="uscore">US Fixed Income Core</a>
+      <a href="#" data-view="uscore2">US Core</a>
+      <a href="#" data-view="global">Global Fixed Income</a>
+      <a href="#" data-view="em">Emerging Markets</a>
+      <a href="#" data-view="eminc">Emerging Income</a>
+    </nav>
+    <div id="dashboard"></div>
+  </nav>
+
+  <script>
+    // --- Sample data modeling Bloomberg/portfolio feeds (replace with real API calls) ---
+    const today = "2026-05-08";
+    const spotTenors = ["1Y", "2Y", "3Y", "5Y", "7Y", "10Y", "15Y", "20Y", "30Y"];
+    const usYields = [3.82, 3.95, 4.05, 4.15, 4.23, 4.38, 4.45, 4.48, 4.52];         // UST par curve (bps)
+    const globalIGSpread = 79;  // ICE BofA IG OAS ~79 bps currently [web:38]
+    const embiSpread = 255;     // EMBI‑like spread ~mid‑250s bps [web:30][web:33]
+
+    // Simulate OMS/portfolio analytics response for each mandate
+    function simulatePortfolioMetrics(mandate) {
+      const baseDuration = { uscore: 4.5, uscore2: 4.8, global: 4.2, em: 5.2, eminc: 5.0 }[mandate];
+      const today1D = ((Math.random() - 0.5) * 0.08).toFixed(2);          // 1D return: -0.04% to +0.04%
+      const today1M = (Math.random() * 0.6 + 0.1).toFixed(2);             // 1M return: 0.1–0.7%
+      const yield = (4.2 + Math.random() * 1.5).toFixed(2);                // 4.2–5.7%
+      const duration = (baseDuration + (Math.random() - 0.5) * 0.8).toFixed(1);
+      const spreadDur = (Math.random() * 3.5 + 1.0).toFixed(1);
+      const oas = (Math.random() * 50 + globalIGSpread).toFixed(0);        // spreads straddling 79–130 bps
+      const var95 = (Math.random() * 1.5 + 0.8).toFixed(1);                // 0.8–2.3 mn
+
+      return {
+        "1D Return": today1D,
+        "1M Return": today1M,
+        "Yield": yield,
+        "Duration": duration,
+        "Spread Duration": spreadDur,
+        "OAS (bps)": oas,
+        "VaR (95%)": var95,
+        "Liquidity (bps)": (10 + Math.random() * 20).toFixed(1),
+      };
+    }
+
+    // --- UI layout & routing ---
+    const nav = document.querySelector("#nav");
+    const dashboard = document.querySelector("#dashboard");
+
+    nav.addEventListener("click", (e) => {
+      if (e.target.tagName === "A") {
+        e.preventDefault();
+        changeView(e.target.dataset.view);
+      }
+    });
+
+    function changeView(view) {
+      document.querySelectorAll("#nav a").forEach(a => a.classList.remove("active"));
+      document.querySelector(`#nav a[data-view="${view}"]`).classList.add("active");
+      buildView(view);
+    }
+
+    // --- Render main dashboard area ---
+    function buildView(view) {
+      const h = (...tags) => tags.join("");
+
+      if (view === "cockpit") {
+        renderCockpit();
+      } else {
+        const mandate = {
+          uscore: "US Fixed Income Core",
+          uscore2: "US Core",
+          global: "Global Fixed Income",
+          em: "Emerging Markets",
+          eminc: "Emerging Income",
+        }[view];
+
+        dashboard.innerHTML = h(
+          `<div class="card">
+            <h3>${mandate}</h3>
+            <p>Today: ${today}</p>
+            <div class="card">
+              <h3>Risk & Return Summary</h3>
+              <table id="summary-${view}"></table>
+            </div>`,
+          `<div class="card">
+            <h3>Duration & Spread Exposure by Tenor</h3>
+            <div class="chart-container">
+              <canvas id="duration-chart-${view}"></canvas>
+            </div>
+          </div>`,
+          `<div class="card">
+            <h3>Attribution (1D)</h3>
+            <table id="attribution-${view}"></table>
+          </div>`,
+          `<div class="card">
+            <h3>Narrative for PM</h3>
+            <div class="note">
+              <textarea id="narrative-${view}" class="textarea"
+                placeholder="Auto‑filled text appear here..."></textarea>
+            </div>
+          </div>`
+        );
+
+        renderMandateMetrics(view, mandate);
+        renderDurationChart(view);
+        renderAttribution(view);
+        renderNarrative(view, mandate);
+      }
+    }
+
+    // --- Exec cockpit: cross‑mandate table ---
+    function renderCockpit() {
+      dashboard.innerHTML = `
+        <div class="card">
+          <h3>Executive Cockpit</h3>
+          <p>Today: ${today}</p>
+          <table id="cockpit-table">
+            <thead>
+              <tr>
+                <th>Mandate</th>
+                <th>1D Total Return</th>
+                <th>1M Total Return</th>
+                <th>Yield</th>
+                <th>Duration</th>
+                <th>Spread Duration</th>
+                <th>OAS (bps)</th>
+                <th>VaR (95%)</th>
+              </tr>
+            </thead>
+            <tbody id="cockpit-body"></tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3>Global Yield Curves</h3>
+          <div class="chart-container">
+            <canvas id="yield-curve"></canvas>
+          </div>
+        </div>
+      `;
+
+      const tbody = document.querySelector("#cockpit-body");
+      const mandates = ["uscore", "uscore2", "global", "em", "eminc"];
+      const labels = [
+        "US Fixed Income Core",
+        "US Core",
+        "Global Fixed Income",
+        "Emerging Markets",
+        "Emerging Income",
+      ];
+
+      // Fill table rows
+      mandates.forEach((view, i) => {
+        const m = simulatePortfolioMetrics(view);
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${labels[i]}</td>
+          <td>${m["1D Return"]}</td>
+          <td>${m["1M Return"]}</td>
+          <td>${m["Yield"]}</td>
+          <td>${m["Duration"]}</td>
+          <td>${m["Spread Duration"]}</td>
+          <td>${m["OAS (bps)"]}</td>
+          <td>${m["VaR (95%)"]}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Yield curve (UST only for demo)
+      const ctx = document.getElementById("yield-curve").getContext("2d");
+      new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: spotTenors,
+          datasets: [
+            {
+              label: "UST Curve (today)",
+              borderColor: "#4c51bf",
+              data: usYields,
+              fill: false,
+            },
+            {
+              label: "Portfolio‑weighted curve (simulated)",
+              borderColor: "#f56565",
+              data: usYields.map(y => y + (Math.random() * 30 - 10)),
+              fill: false,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { title: { display: true, text: "Yield (bps)" } } },
+        },
+      });
+    }
+
+    // --- Per‑mandate metrics table ---
+    function renderMandateMetrics(view, mandate) {
+      const m = simulatePortfolioMetrics(view);
+      const table = document.querySelector(`#summary-${view}`);
+      table.innerHTML = `
+        <tr><th>Metric</th><th>Today</th><th>1W ago</th><th>1M ago</th></tr>
+        <tr><td>1D Total Return (%)</td><td>${m["1D Return"]}</td><td>${(m["1D Return"]*0.95).toFixed(2)}</td><td>${(m["1D Return"]*0.8).toFixed(2)}</td></tr>
+        <tr><td>1M Total Return (%)</td><td>${m["1M Return"]}</td><td>${(m["1M Return"]*1.05).toFixed(2)}</td><td>${m["1M Return"]}</td></tr>
+        <tr><td>Yield (to worst)</td><td>${m["Yield"]}%</td><td>${(m["Yield"]*0.98).toFixed(2)}%</td><td>${(m["Yield"]*0.95).toFixed(2)}%</td></tr>
+        <tr><td>Duration (eff.)</td><td>${m["Duration"]} yrs</td><td>${m["Duration"]}</td><td>${m["Duration"]}</td></tr>
+        <tr><td>Spread Duration</td><td>${m["Spread Duration"]} yrs</td><td>${m["Spread Duration"]}</td><td>${m["Spread Duration"]}</td></tr>
+        <tr><td>OAS (bps)</td><td>${m["OAS (bps)"]}</td><td>${m["OAS (bps)"]}</td><td>${m["OAS (bps)"]}</td></tr>
+        <tr><td>VaR (95%) ($mn)</td><td>${m["VaR (95%)"]}</td><td>${m["VaR (95%)"]}</td><td>${m["VaR (95%)"]}</td></tr>
+        <tr><td>Liquidity (bid–ask bps)</td><td>${m["Liquidity (bps)"]}</td><td>${m["Liquidity (bps)"]}</td><td>${m["Liquidity (bps)"]}</td></tr>
+      `;
+    }
+
+    // --- Duration exposure chart ---
+    function renderDurationChart(view) {
+      const ctx = document.getElementById(`duration-chart-${view}`).getContext("2d");
+      const tenors = spotTenors.filter(t => t === "1Y" || t === "2Y" || t === "5Y" || t === "10Y" || t === "30Y");
+      const dur = tenors.map(() => Math.random() * 3.0 + 1.0);   // duration exposure
+      const spd = tenors.map(() => Math.random() * 2.0 + 0.8);   // spread duration exposure
+
+      new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: tenors,
+          datasets: [
+            {
+              label: "Duration exposure",
+              backgroundColor: "#4c51bf",
+              data: dur,
+            },
+            {
+              label: "Spread duration exposure",
+              backgroundColor: "#f56565",
+              data: spd,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { stacked: true },
+            y: { stacked: true, title: { display: true, text: "Exposure (yrs × notional)" } },
+          },
+          plugins: {
+            tooltip: { callbacks: { label: (ctx) => ctx.dataset.label + ": " + ctx.parsed.y.toFixed(1) } },
+          },
+        },
+      });
+    }
+
+    // --- Attribution table (1D) ---
+    function renderAttribution(view) {
+      const mandatory = {
+        "curve": Math.random() * 15 - 7,        // parallel + steepening
+        "credit": (Math.random() - 0.5) * 10,    // IG/HY mixed
+        "country": (Math.random() - 0.5) * 8,    // EM country/region
+        "currency": (Math.random() - 0.5) * 6,   // FX impact
+        "selection": (Math.random() - 0.5) * 10, // security selection
+      };
+
+      const format = (x) => x.toFixed(1);
+
+      const table = document.querySelector(`#attribution-${view}`);
+      table.innerHTML = `
+        <tr>
+          <th>Factor</th>
+          <th>1D (bps)</th>
+          <th>1W (bps)</th>
+          <th>1M (bps)</th>
+        </tr>
+        <tr>
+          <td>Yield curve (parallel)</td>
+          <td>${format(mandatory.curve)}</td>
+          <td>${format(mandatory.curve * 1.1)}</td>
+          <td>${format(mandatory.curve * 3.0)}</td>
+        </tr>
+        <tr>
+          <td>Curve steepening/flattening</td>
+          <td>${format(mandatory.curve * 0.8)}</td>
+          <td>${format(mandatory.curve * 0.9)}</td>
+          <td>${format(mandatory.curve * 2.5)}</td>
+        </tr>
+        <tr>
+          <td>Credit spread (IG)</td>
+          <td>${format(mandatory.credit * 0.8)}</td>
+          <td>${format(mandatory.credit * 0.9)}</td>
+          <td>${format(mandatory.credit * 2.5)}</td>
+        </tr>
+        <tr>
+          <td>Credit spread (HY/EM)</td>
+          <td>${format(mandatory.credit * 1.2)}</td>
+          <td>${format(mandatory.credit * 
